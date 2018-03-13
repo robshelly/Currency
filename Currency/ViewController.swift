@@ -54,24 +54,74 @@ class ViewController: UIViewController, UITextFieldDelegate {
         baseSymbol.text = baseCurrency.symbol
         baseFlag.text = baseCurrency.flag
         
-        // set up last updated date
-        let dateformatter = DateFormatter()
-        dateformatter.dateFormat = "dd/MM/yyyy hh:mm a"
-        lastUpdatedDateLabel.text = dateformatter.string(from: lastUpdatedDate)
+        self.setDate()
         
         // display currency info
         self.displayCurrencyInfo()
         
+        let centre: NotificationCenter = NotificationCenter.default;
+        centre.addObserver(self, selector: #selector(keyboardDidShow(notification:)), name: NSNotification.Name.UIKeyboardWillShow, object: nil)
+        centre.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: NSNotification.Name.UIKeyboardWillHide, object: nil)
         
         // setup view mover
         baseTextField.delegate = self
-        
+        configureDecimalPad()
+
         self.convert(self)
     }
     
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+    func configureDecimalPad() {
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+
+        let flexibleSpace = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.flexibleSpace, target: nil, action: nil)
+
+        let doneButton = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.done, target: self,  action: #selector(self.doneClicked))
+
+        toolbar.sizeToFit()
+        baseTextField.inputAccessoryView = toolbar
+        toolbar.setItems([flexibleSpace, doneButton], animated: true)
+    }
+    
+    @objc func keyboardDidShow(notification: Notification) {
+        let info:NSDictionary = notification.userInfo! as NSDictionary
+        let keyBoardSize = (info[UIKeyboardFrameEndUserInfoKey] as! NSValue).cgRectValue.size
+        let keyBoardY = self.view.frame.size.height - keyBoardSize.height
+
+        let baseTextFieldY:CGFloat! = self.baseTextField.frame.origin.y
+
+        moveView(distance: self.view.frame.origin.y - (baseTextFieldY! - (keyBoardY - baseTextField.frame.height - 5)))
+    }
+    
+    @objc func keyboardWillHide(notification: Notification) {
+        moveView(distance: 0.0)
+    }
+    
+    func moveView(distance: CGFloat) {
+        UIView.animate(
+            withDuration: 0.25,
+            delay: 0.0,
+            options: UIViewAnimationOptions.curveEaseIn,
+            animations: {
+                self.view.frame = CGRect(
+                    x:0,
+                    y:distance,
+                    width:self.view.bounds.width,
+                    height: self.view.bounds.height
+                )
+        },
+            completion: nil
+        )
+    }
+    
+    @objc func doneClicked() {
+        convert(self)
+        view.endEditing(true)
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.UIKeyboardWillShow, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.UIKeyboardWillHide, object: nil)
     }
     
     func createCurrencyDictionary(){
@@ -94,7 +144,6 @@ class ViewController: UIViewController, UITextFieldDelegate {
             usdFlagLabel.text = c.flag
         }
     }
-    
     
     func getConversionTable() {
         //var result = "<NOTHING>"
@@ -165,6 +214,7 @@ class ViewController: UIViewController, UITextFieldDelegate {
         }
         
     }
+
     
     @IBAction func convert(_ sender: Any) {
         var resultGBP = 0.0
@@ -187,6 +237,20 @@ class ViewController: UIViewController, UITextFieldDelegate {
         usdValueLabel.text = String(format: "%.02f", resultUSD)
     }
     
+    
+    @IBAction func refresh(_ sender: Any) {
+        self.getConversionTable()
+        self.setDate()
+        print("Refreshing")
+    }
+    
+    func setDate() {
+        // set up last updated date
+        let dateformatter = DateFormatter()
+        dateformatter.dateFormat = "dd/MM/yyyy hh:mm a"
+        lastUpdatedDateLabel.text = dateformatter.string(from: lastUpdatedDate)
+    }
+    
     /*
      override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
      // Get the new view controller using segue.destinationViewController.
@@ -194,7 +258,6 @@ class ViewController: UIViewController, UITextFieldDelegate {
      
      }
      */
-    
     
 }
 
