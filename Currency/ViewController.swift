@@ -37,21 +37,10 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     
     var convertValue:Double = 0
     
-    //MARK Outlets
-    //@IBOutlet weak var convertedLabel: UILabel!
-    
     @IBOutlet weak var baseSymbol: UILabel!
     @IBOutlet weak var baseTextField: UITextField!
     @IBOutlet weak var baseFlag: UILabel!
     @IBOutlet weak var lastUpdatedDateLabel: UILabel!
-    
-//    @IBOutlet weak var gbpSymbolLabel: UILabel!
-//    @IBOutlet weak var gbpValueLabel: UILabel!
-//    @IBOutlet weak var gbpFlagLabel: UILabel!
-//
-//    @IBOutlet weak var usdSymbolLabel: UILabel!
-//    @IBOutlet weak var usdValueLabel: UILabel!
-//    @IBOutlet weak var usdFlagLabel: UILabel!
     
     @IBOutlet weak var tableView: UITableView!
     
@@ -61,8 +50,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
-        // print("currencyDict has \(self.currencyDict.count) entries")
         
         // create currency dictionary
         self.createCurrencyDictionary()
@@ -73,40 +60,46 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         
         // set up base currency screen items
         baseTextField.text = String(format: "%.02f", baseCurrency.rate)
+        baseTextField.font = UIFont.boldSystemFont(ofSize: 30.0)
         baseSymbol.text = baseCurrency.symbol
+        baseSymbol.font = UIFont.boldSystemFont(ofSize: 40.0)
         baseFlag.text = baseCurrency.flag
+        baseFlag.font = UIFont.boldSystemFont(ofSize: 30.0)
+        baseFlag.textAlignment = NSTextAlignment.right;
         
         self.setDate()
         
-        // display currency info
-//        self.displayCurrencyInfo()
-        
+        // Add notifitcations for keyboard
         let centre: NotificationCenter = NotificationCenter.default;
         centre.addObserver(self, selector: #selector(keyboardDidShow(notification:)), name: NSNotification.Name.UIKeyboardWillShow, object: nil)
         centre.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: NSNotification.Name.UIKeyboardWillHide, object: nil)
         
-        // setup view mover
         baseTextField.delegate = self
-        configureDecimalPad()
+        configureKeypadToolBar()
         
         currencyArray = [gbp, usd, cny, aud, brl, cad, chf, czk, dkk, hkd, hrk, huf, idr, ils, inr, jpy, rub]
+        
+        // Setup table
         tableView.delegate = self
         tableView.dataSource = self
         
-        
         refresher = UIRefreshControl()
-        refresh()
+        setupTableView()
+        update()
+    }
+    
+    private func setupTableView() {
         
-        self.tableView.addSubview(refresher)
+        // Add Refresh Control to Table View
+        if #available(iOS 10.0, *) {
+            tableView.refreshControl = refresher
+        } else {
+            tableView.addSubview(refresher)
+        }
+        refresher.addTarget(self, action: #selector(update), for: .valueChanged)
     }
     
-    func refresh() {
-        print("Refreshing")
-        self.tableView.reloadData()
-        self.refresher.endRefreshing()
-    }
-    
-    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return currencyArray.count
     }
     
@@ -123,10 +116,29 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         
         cell.currencyFlag.text = currency.flag
         cell.currencyFlag.font = UIFont.boldSystemFont(ofSize: 30.0)
+        cell.currencyFlag.textAlignment = NSTextAlignment.right;
         return cell
     }
     
-    func configureDecimalPad() {
+    @objc func update() {
+        // Update conversion table, date and then convert using latest values
+        self.getConversionTable()
+        print("Last Updated: \(lastUpdatedDate)")
+        
+        
+        self.setDate()
+        self.convert()
+        
+        // Update table view with latest values
+        self.tableView.reloadData()
+        
+        // End refreshing
+        self.refresher.endRefreshing()
+    }
+    
+    
+    // Add toolbar to with done button to keypad
+    func configureKeypadToolBar() {
         let toolbar = UIToolbar()
         toolbar.sizeToFit()
 
@@ -140,6 +152,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     }
     
     @objc func keyboardDidShow(notification: Notification) {
+        // Move frame when keyboard appears if textbox is would be obscured
         let info:NSDictionary = notification.userInfo! as NSDictionary
         let keyBoardSize = (info[UIKeyboardFrameEndUserInfoKey] as! NSValue).cgRectValue.size
         let keyBoardY = self.view.frame.size.height - keyBoardSize.height
@@ -150,10 +163,12 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     }
     
     @objc func keyboardWillHide(notification: Notification) {
+        // Move frame to origin when keyboard disappears
         moveView(distance: 0.0)
     }
     
     func moveView(distance: CGFloat) {
+        // Move the frame by a vertical amount
         UIView.animate(
             withDuration: 0.25,
             delay: 0.0,
@@ -169,22 +184,19 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
             completion: nil
         )
     }
-    
-    @objc func doneClicked() {
-        convert(self)
-        view.endEditing(true)
-    }
-    
+   
     override func viewWillDisappear(_ animated: Bool) {
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name.UIKeyboardWillShow, object: nil)
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name.UIKeyboardWillHide, object: nil)
     }
     
+    @objc func doneClicked() {
+        view.endEditing(true)
+        convert()
+        self.tableView.reloadData()
+    }
+    
     func createCurrencyDictionary(){
-//        currencyDict["GBP"] = Currency(name:"GBP", rate:1, flag:"🇬🇧", symbol: "£")
-//        currencyDict["USD"] = Currency(name:"USD", rate:1, flag:"🇺🇸", symbol: "$")
-        
-        
         currencyDict["AUD"] = Currency(name:"AUD", rate:1, flag:"🇦🇺", symbol:"A$")
         currencyDict["BRL"] = Currency(name:"BRL", rate:1, flag:"🇧🇷", symbol:"R$")
         currencyDict["CAD"] = Currency(name:"CAD", rate:1, flag:"🇨🇦", symbol:"C$")
@@ -204,20 +216,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         currencyDict["USD"] = Currency(name:"USD", rate:1, flag:"🇺🇸", symbol:"$")
     }
     
-//    func displayCurrencyInfo() {
-//        // GBP
-//        if let c = currencyDict["GBP"]{
-//            gbpSymbolLabel.text = c.symbol
-//            gbpValueLabel.text = String(format: "%.02f", c.rate)
-//            gbpFlagLabel.text = c.flag
-//        }
-//        if let c = currencyDict["USD"]{
-//            usdSymbolLabel.text = c.symbol
-//            usdValueLabel.text = String(format: "%.02f", c.rate)
-//            usdFlagLabel.text = c.flag
-//        }
-//    }
-    
     func getConversionTable() {
         //var result = "<NOTHING>"
         
@@ -226,15 +224,14 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         var request = URLRequest(url: URL(string: urlStr)!)
         request.httpMethod = "GET"
         
-        let indicator = UIActivityIndicatorView(activityIndicatorStyle: .gray)
-        indicator.center = view.center
-        view.addSubview(indicator)
-        indicator.startAnimating()
-        
         NSURLConnection.sendAsynchronousRequest(request, queue: OperationQueue.main) { response, data, error in
-            
-            indicator.stopAnimating()
-            
+        
+        
+        
+        
+//        var session = NSURLSession.sharedSession()
+        
+        
             if error == nil{
                 //print(response!)
                 
@@ -270,7 +267,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
                             if let c = self.currencyDict[name] {
                                 c.rate = rate!
                             } else {
-                                print("Ignoring currency: \(String(describing: rate))")
+//                                print("Ignoring currency: \(String(describing: rate))")
                             }
                             
                             /*
@@ -294,24 +291,26 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     }
 
     
-    @IBAction func convert(_ sender: Any) {
-        
-        for c in currencyArray {
-            var result = 0.0
-            if let cDict = self.currencyDict[c.name] {
-                result = convertValue * cDict.rate
+    func convert() {
+        if let euro = Double(baseTextField.text!) {
+            convertValue = euro
+            for c in currencyArray {
+                var result = 0.0
+                if let cDict = self.currencyDict[c.name] {
+                    result = convertValue * cDict.rate
+                }
+                c.rate = result
             }
-            c.rate = result
         }
-        
-        refresh()
     }
     
     
     @IBAction func refresh(_ sender: Any) {
+        print("Refreshing Conversion Table")
         self.getConversionTable()
+        self.convert()
         self.setDate()
-        print("Refreshing")
+//        self.refresh()
     }
     
     func setDate() {
@@ -320,14 +319,5 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         dateformatter.dateFormat = "dd/MM/yyyy hh:mm a"
         lastUpdatedDateLabel.text = dateformatter.string(from: lastUpdatedDate)
     }
-    
-    /*
-     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-     // Get the new view controller using segue.destinationViewController.
-     // Pass the selected object to the new view controller.
-     
-     }
-     */
-    
 }
 
