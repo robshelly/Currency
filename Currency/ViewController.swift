@@ -41,6 +41,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     @IBOutlet weak var baseTextField: UITextField!
     @IBOutlet weak var baseFlag: UILabel!
     @IBOutlet weak var lastUpdatedDateLabel: UILabel!
+    @IBOutlet weak var lastUpdatedLabel: UILabel!
     
     @IBOutlet weak var tableView: UITableView!
     
@@ -66,6 +67,8 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         baseFlag.text = baseCurrency.flag
         baseFlag.font = UIFont.boldSystemFont(ofSize: 30.0)
         baseFlag.textAlignment = NSTextAlignment.right;
+        
+        lastUpdatedDateLabel.textAlignment = NSTextAlignment.center;
         
 //        self.setDate()
         
@@ -124,6 +127,8 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     
     @objc func tableRefresh() {
         self.getConversionTable()
+        print("Last Updated: \(lastUpdatedDate)")
+        self.setDate()
     }
     
     @objc func updateUI() {
@@ -131,10 +136,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         // Table view is hidden before initial rates are retrieved
         // show them now
         tableView.isHidden = false
-        print("Last Updated: \(lastUpdatedDate)")
-        
-        
-        self.setDate()
         self.convert()
         
         // Update table view with latest values
@@ -200,8 +201,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     @objc func doneClicked() {
         view.endEditing(true)
         updateUI()
-//        convert()
-//        self.tableView.reloadData()
     }
     
     func createCurrencyDictionary(){
@@ -248,9 +247,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
                 print("Error fetching rates!")
                 return
             }
-            
-            // Testing activity indicator
-            sleep(3)
             
             // Ensure response contained data
             guard let responseData = data else {
@@ -314,7 +310,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         // set up last updated date
         let dateformatter = DateFormatter()
         dateformatter.dateFormat = "dd/MM/yyyy hh:mm a"
-        lastUpdatedDateLabel.text = dateformatter.string(from: lastUpdatedDate)
+        lastUpdatedDateLabel.text = "Updated: \(dateformatter.string(from: lastUpdatedDate))"
     }
 }
 
