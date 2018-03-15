@@ -55,7 +55,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         self.createCurrencyDictionary()
         
         // get latest currency values
-        getConversionTable()
+//        getConversionTable()
         convertValue = 1
         
         // set up base currency screen items
@@ -67,7 +67,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         baseFlag.font = UIFont.boldSystemFont(ofSize: 30.0)
         baseFlag.textAlignment = NSTextAlignment.right;
         
-        self.setDate()
+//        self.setDate()
         
         // Add notifitcations for keyboard
         let centre: NotificationCenter = NotificationCenter.default;
@@ -85,10 +85,12 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         
         refresher = UIRefreshControl()
         setupTableView()
-        update()
+        tableRefresh()
     }
     
     private func setupTableView() {
+        // Hide tableview until after initial rates are retrieved
+        tableView.isHidden = true
         
         // Add Refresh Control to Table View
         if #available(iOS 10.0, *) {
@@ -96,7 +98,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         } else {
             tableView.addSubview(refresher)
         }
-        refresher.addTarget(self, action: #selector(update), for: .valueChanged)
+        refresher.addTarget(self, action: #selector(tableRefresh), for: .valueChanged)
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -120,9 +122,15 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         return cell
     }
     
-    @objc func update() {
-        // Update conversion table, date and then convert using latest values
+    @objc func tableRefresh() {
         self.getConversionTable()
+    }
+    
+    @objc func updateUI() {
+        
+        // Table view is hidden before initial rates are retrieved
+        // show them now
+        tableView.isHidden = false
         print("Last Updated: \(lastUpdatedDate)")
         
         
@@ -135,7 +143,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         // End refreshing
         self.refresher.endRefreshing()
     }
-    
     
     // Add toolbar to with done button to keypad
     func configureKeypadToolBar() {
@@ -192,8 +199,9 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     
     @objc func doneClicked() {
         view.endEditing(true)
-        convert()
-        self.tableView.reloadData()
+        updateUI()
+//        convert()
+//        self.tableView.reloadData()
     }
     
     func createCurrencyDictionary(){
@@ -216,80 +224,78 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         currencyDict["USD"] = Currency(name:"USD", rate:1, flag:"🇺🇸", symbol:"$")
     }
     
+    
+    // https://gist.github.com/cmoulton/149b03b5ea2f4c870a44526a02618a30
     func getConversionTable() {
-        //var result = "<NOTHING>"
-        
+
         let urlStr:String = "https://api.fixer.io/latest"
         
-        var request = URLRequest(url: URL(string: urlStr)!)
-        request.httpMethod = "GET"
+        guard let url = URL(string: urlStr) else {
+            print("Error: cannot create URL")
+            return
+        }
+        let urlRequest = URLRequest(url: url)
         
-        NSURLConnection.sendAsynchronousRequest(request, queue: OperationQueue.main) { response, data, error in
+        // set up the session
+        let config = URLSessionConfiguration.default
+        let session = URLSession(configuration: config)
         
-        
-        
-        
-//        var session = NSURLSession.sharedSession()
-        
-        
-            if error == nil{
-                //print(response!)
-                
-                do {
-                    let jsonDict = try JSONSerialization.jsonObject(with: data!, options: .mutableContainers) as! [String:Any]
-                    //print(jsonDict)
-                    
-                    if let ratesData = jsonDict["rates"] as? NSDictionary {
-                        //print(ratesData)
-                        for rate in ratesData{
-                            //print("#####")
-                            let name = String(describing: rate.key)
-                            let rate = (rate.value as? NSNumber)?.doubleValue
-                            //var symbol:String
-                            //var flag:String
-                            
-//                            switch(name){
-//                            case "USD":
-//                                //symbol = "$"
-//                                //flag = "🇺🇸"
-//                                let c:Currency  = self.currencyDict["USD"]!
-//                                c.rate = rate!
-//                                self.currencyDict["USD"] = c
-//                            case "GBP":
-//                                //symbol = "£"
-//                                //flag = "🇬🇧"
-//                                let c:Currency  = self.currencyDict["GBP"]!
-//                                c.rate = rate!
-//                                self.currencyDict["GBP"] = c
-//                            default:
-//                                print("Ignoring currency: \(String(describing: rate))")
-//                            }
-                            if let c = self.currencyDict[name] {
-                                c.rate = rate!
-                            } else {
-//                                print("Ignoring currency: \(String(describing: rate))")
-                            }
-                            
-                            /*
-                             let c:Currency = Currency(name: name, rate: rate!, flag: flag, symbol: symbol)!
-                             self.currencyDict[name] = c
-                             */
-                        }
-                        self.lastUpdatedDate = Date()
-                    }
-                }
-                catch let error as NSError{
-                    print(error)
-                }
-            }
-            else{
-                print("Error")
+        // Make request
+        let task = session.dataTask(with: urlRequest) {
+            (data, response, error) in
+            // Check for errors
+            guard error == nil else {
+                print("Error fetching rates!")
+                return
             }
             
+            // Testing activity indicator
+            sleep(3)
+            
+            // Ensure response contained data
+            guard let responseData = data else {
+                print("Error: did not receive data")
+                return
+            }
+            // Parse JSON
+            do {
+                // Safely get dict from JSON
+                guard let jsonDict = try JSONSerialization.jsonObject(with: responseData, options: []) as? [String: Any] else {
+                    print("Error parsing JSON")
+                    return
+                }
+                
+                // Update the date now that valid data is confirmed
+                self.lastUpdatedDate = Date()
+                
+                if let rates = jsonDict["rates"] as? NSDictionary {
+                    // Set individual rates
+                    for rate in rates{
+                        let name = String(describing: rate.key)
+                        let rate = (rate.value as? NSNumber)?.doubleValue
+                        
+                        if let c = self.currencyDict[name] {
+                            c.rate = rate!
+                        }
+//                        else {
+//                            print("Ignoring currency: \(String(describing: rate))")
+//                        }
+                    }
+                }
+                
+            } catch  {
+                print("Error reading JSON")
+                return
+            }
+            // Now update the UI
+            // https://www.hackingwithswift.com/read/9/4/back-to-the-main-thread-dispatchqueuemain
+            DispatchQueue.main.async {
+                print("Finished fetching rates")
+                self.updateUI()
+            }
         }
-        
+        task.resume()
     }
-
     
     func convert() {
         if let euro = Double(baseTextField.text!) {
@@ -302,15 +308,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
                 c.rate = result
             }
         }
-    }
-    
-    
-    @IBAction func refresh(_ sender: Any) {
-        print("Refreshing Conversion Table")
-        self.getConversionTable()
-        self.convert()
-        self.setDate()
-//        self.refresh()
     }
     
     func setDate() {
