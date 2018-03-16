@@ -8,7 +8,7 @@
 
 import UIKit
 
-class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate, UITableViewDataSource {
+class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate, UITableViewDataSource, UIPickerViewDelegate, UIPickerViewDataSource {
 
     var currencyDict:Dictionary = [String:Currency]()
     var baseCurrency:Currency = Currency.init(name:"EUR", rate:1, flag:"🇪🇺", symbol:"€")!
@@ -20,9 +20,9 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     @IBOutlet weak var baseTextField: UITextField!
     @IBOutlet weak var baseFlag: UILabel!
     @IBOutlet weak var lastUpdatedDateLabel: UILabel!
-    @IBOutlet weak var lastUpdatedLabel: UILabel!
     
     @IBOutlet weak var tableView: UITableView!
+    @IBOutlet weak var currencyPicker: UIPickerView!
     
     var refresher: UIRefreshControl!
     
@@ -38,11 +38,12 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         convertValue = 1
         
         // set up some labels/text fields on page
-        baseTextField.text = String(format: "%.02f", baseCurrency.rate)
+        setBaseCurrencyLabels()
+//        baseTextField.text = String(format: "%.02f", baseCurrency.rate)
         baseTextField.font = UIFont.boldSystemFont(ofSize: 30.0)
-        baseSymbol.text = baseCurrency.symbol
+//        baseSymbol.text = baseCurrency.symbol
         baseSymbol.font = UIFont.boldSystemFont(ofSize: 40.0)
-        baseFlag.text = baseCurrency.flag
+//        baseFlag.text = baseCurrency.flag
         baseFlag.font = UIFont.boldSystemFont(ofSize: 30.0)
         baseFlag.textAlignment = NSTextAlignment.right;
         
@@ -60,11 +61,15 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         tableView.delegate = self
         tableView.dataSource = self
         
+        currencyPicker.delegate = self
+        currencyPicker.dataSource = self
+        
         refresher = UIRefreshControl()
         setupTableView()
         tableRefresh()
     }
     
+    // Set up Table view
     private func setupTableView() {
         // Hide tableview until after initial rates are retrieved
         tableView.isHidden = true
@@ -78,6 +83,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         refresher.addTarget(self, action: #selector(tableRefresh), for: .valueChanged)
     }
     
+    // Table view methods
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return getSortedKeys().count
     }
@@ -98,19 +104,39 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         cell.currencyFlag.textAlignment = NSTextAlignment.right;
         return cell
     }
-    
-    func getSortedKeys() -> Array<String> {
-        // this retursn a sorted list of keys from the currencyDic
-        // used to display currencies in the tableview in alpahbetical order
-        return Array(currencyDict.keys).sorted(by: <)
+
+    // Picker view methods
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        // Hide lines on picker view... looks better with implemented layout
+        pickerView.subviews.forEach({
+            $0.isHidden = $0.frame.height < 1.0
+        })
+        return 1
     }
     
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        return getSortedKeys().count
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        return getSortedKeys()[row]
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+        print("Changed base currency: \(getSortedKeys()[row])")
+        self.baseCurrency = currencyDict[getSortedKeys()[row]]!
+        setBaseCurrencyLabels()
+        updateUI()
+    }
+    
+    // Reload conversion rates when table is refreshed
     @objc func tableRefresh() {
         self.getConversionTable()
         print("Last Updated: \(lastUpdatedDate)")
         self.setDate()
     }
     
+    // Update the UI with after a convert or rates refresh
     @objc func updateUI() {
         
         // Table view is hidden before initial rates are retrieved
@@ -139,6 +165,8 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         toolbar.setItems([flexibleSpace, doneButton], animated: true)
     }
     
+    
+    // Keyboard methods
     @objc func keyboardDidShow(notification: Notification) {
         // Move frame when keyboard appears if textbox is would be obscured
         let info:NSDictionary = notification.userInfo! as NSDictionary
@@ -178,9 +206,24 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name.UIKeyboardWillHide, object: nil)
     }
     
+    // Done button on keypad toolbar clicked
     @objc func doneClicked() {
         view.endEditing(true)
         updateUI()
+    }
+    
+    // Get a list of sorted currency keys
+    func getSortedKeys() -> Array<String> {
+        // this retursn a sorted list of keys from the currencyDic
+        // used to display currencies in the tableview in alpahbetical order
+        return Array(currencyDict.keys).sorted(by: <)
+    }
+    
+    // Set the base currency
+    func setBaseCurrencyLabels() {
+        baseTextField.text = String(format: "%.02f", baseCurrency.rate)
+        baseSymbol.text = baseCurrency.symbol
+        baseFlag.text = baseCurrency.flag
     }
     
     func createCurrencyDictionary(){
@@ -275,12 +318,15 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     }
 
     func convert() {
+        // Rates receives are all expressed a ratios to €1
+        // therfore to convert any currency to any other currency use the following:
+        // targetValue = baseValue * (targetRate / baseRate)
         if let euro = Double(baseTextField.text!) {
             convertValue = euro
             for k in getSortedKeys() {
                 var result = 0.0
                 if let cDict = self.currencyDict[k] {
-                    result = convertValue * cDict.rate
+                    result = convertValue * (cDict.rate / baseCurrency.rate)
                 }
                 currencyDict[k]?.value = result
             }
