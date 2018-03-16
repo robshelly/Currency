@@ -9,31 +9,10 @@
 import UIKit
 
 class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate, UITableViewDataSource {
-    
-    //MARK Model holders
+
     var currencyDict:Dictionary = [String:Currency]()
-    var currencyArray = [Currency]()
     var baseCurrency:Currency = Currency.init(name:"EUR", rate:1, flag:"🇪🇺", symbol:"€")!
     var lastUpdatedDate:Date = Date()
-    
-    var eur:Currency = Currency.init(name:"EUR", rate:1, flag:"🇪🇺", symbol:"€")!
-    var aud:Currency = Currency.init(name:"AUD", rate:1, flag:"🇦🇺", symbol:"A$")!
-    var brl:Currency = Currency.init(name:"BRL", rate:1, flag:"🇧🇷", symbol:"R$")!
-    var cad:Currency = Currency.init(name:"CAD", rate:1, flag:"🇨🇦", symbol:"C$")!
-    var cny:Currency = Currency.init(name:"CNY", rate:1, flag:"🇨🇳", symbol:"元")!
-    var chf:Currency = Currency.init(name:"CHF", rate:1, flag:"🇨🇭", symbol:"Fr")!
-    var czk:Currency = Currency.init(name:"CZK", rate:1, flag:"🇨🇿", symbol:"Kč")!
-    var dkk:Currency = Currency.init(name:"DKK", rate:1, flag:"🇩🇰", symbol:"kr")!
-    var gbp:Currency = Currency.init(name:"GBP", rate:1, flag:"🇬🇧", symbol:"£")!
-    var hkd:Currency = Currency.init(name:"HKD", rate:1, flag:"🇭🇰", symbol:"HK$")!
-    var hrk:Currency = Currency.init(name:"HRK", rate:1, flag:"🇭🇷", symbol:"kn")!
-    var huf:Currency = Currency.init(name:"HUF", rate:1, flag:"🇭🇺", symbol:"Ft")!
-    var idr:Currency = Currency.init(name:"IDR", rate:1, flag:"🇮🇩", symbol:"Rp")!
-    var ils:Currency = Currency.init(name:"ILS", rate:1, flag:"🇮🇱", symbol:"₪")!
-    var inr:Currency = Currency.init(name:"INR", rate:1, flag:"🇮🇳", symbol:"₹")!
-    var jpy:Currency = Currency.init(name:"JPY", rate:1, flag:"🇯🇵", symbol:"¥")!
-    var rub:Currency = Currency.init(name:"RUB", rate:1, flag:"🇷🇺", symbol:"₽")!
-    var usd:Currency = Currency.init(name:"USD", rate:1, flag:"🇺🇸", symbol:"$")!
     
     var convertValue:Double = 0
     
@@ -55,11 +34,10 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         // create currency dictionary
         self.createCurrencyDictionary()
         
-        // get latest currency values
-//        getConversionTable()
+        // Inialise convert value to 1
         convertValue = 1
         
-        // set up base currency screen items
+        // set up some labels/text fields on page
         baseTextField.text = String(format: "%.02f", baseCurrency.rate)
         baseTextField.font = UIFont.boldSystemFont(ofSize: 30.0)
         baseSymbol.text = baseCurrency.symbol
@@ -70,8 +48,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         
         lastUpdatedDateLabel.textAlignment = NSTextAlignment.center;
         
-//        self.setDate()
-        
         // Add notifitcations for keyboard
         let centre: NotificationCenter = NotificationCenter.default;
         centre.addObserver(self, selector: #selector(keyboardDidShow(notification:)), name: NSNotification.Name.UIKeyboardWillShow, object: nil)
@@ -79,8 +55,6 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         
         baseTextField.delegate = self
         configureKeypadToolBar()
-        
-        currencyArray = [gbp, usd, cny, aud, brl, cad, chf, czk, dkk, hkd, hrk, huf, idr, ils, inr, jpy, rub]
         
         // Setup table
         tableView.delegate = self
@@ -105,24 +79,30 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return currencyArray.count
+        return getSortedKeys().count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell") as! CustomTableViewCell
-        let currency = currencyArray[indexPath.row]
+        let key = getSortedKeys()[indexPath.row]
         
-        cell.currencySymbol.text = "\(currency.name) \(currency.symbol)"
+        cell.currencySymbol.text = "\(String(describing: currencyDict[key]!.name)) \(String(describing: currencyDict[key]!.symbol))"
         cell.currencySymbol.font = UIFont.boldSystemFont(ofSize: 25.0)
         
-        cell.currencyValue.text = String(format: "%.02f", currency.rate)
+        cell.currencyValue.text = String(format: "%.02f", (currencyDict[key]?.value)!)
         cell.currencyValue.font = UIFont.boldSystemFont(ofSize: 30.0)
         cell.currencyValue.textAlignment = NSTextAlignment.right;
         
-        cell.currencyFlag.text = currency.flag
+        cell.currencyFlag.text = currencyDict[key]?.flag
         cell.currencyFlag.font = UIFont.boldSystemFont(ofSize: 30.0)
         cell.currencyFlag.textAlignment = NSTextAlignment.right;
         return cell
+    }
+    
+    func getSortedKeys() -> Array<String> {
+        // this retursn a sorted list of keys from the currencyDic
+        // used to display currencies in the tableview in alpahbetical order
+        return Array(currencyDict.keys).sorted(by: <)
     }
     
     @objc func tableRefresh() {
@@ -204,6 +184,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
     }
     
     func createCurrencyDictionary(){
+        currencyDict["EUR"] = Currency(name:"EUR", rate:1, flag:"🇪🇺", symbol:"€")
         currencyDict["AUD"] = Currency(name:"AUD", rate:1, flag:"🇦🇺", symbol:"A$")
         currencyDict["BRL"] = Currency(name:"BRL", rate:1, flag:"🇧🇷", symbol:"R$")
         currencyDict["CAD"] = Currency(name:"CAD", rate:1, flag:"🇨🇦", symbol:"C$")
@@ -292,16 +273,16 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         }
         task.resume()
     }
-    
+
     func convert() {
         if let euro = Double(baseTextField.text!) {
             convertValue = euro
-            for c in currencyArray {
+            for k in getSortedKeys() {
                 var result = 0.0
-                if let cDict = self.currencyDict[c.name] {
+                if let cDict = self.currencyDict[k] {
                     result = convertValue * cDict.rate
                 }
-                c.rate = result
+                currencyDict[k]?.value = result
             }
         }
     }

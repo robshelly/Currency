@@ -14,6 +14,7 @@ class Currency {
     var rate:Double
     var flag:String
     var symbol:String
+    var value:Double
     
     //MARK: initiaizer
     init?(name:String, rate:Double, flag:String, symbol:String){
@@ -26,6 +27,7 @@ class Currency {
         self.rate = rate
         self.flag = flag
         self.symbol = symbol
+        self.value = 1.0
     }
 }
 
