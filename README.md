@@ -4,6 +4,7 @@ A simple iOS currency conversion app written in Swift, using the Fixer.io API (h
 
 Completed as an assignment for Mac Programming. The following changes/features were implemented:
 
+* Set app to support only Portraint orientation as app style does not suit landscape
  * Modified the _Currency_ class to inlude a _value_ attribute
 * A number of extra currencies were added
 * A decimal keypad with a toolbar containing a _Done_ button was configured for input
