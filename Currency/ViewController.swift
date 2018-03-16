@@ -113,7 +113,7 @@ class ViewController: UIViewController, UITextFieldDelegate, UITableViewDelegate
         let currency = currencyArray[indexPath.row]
         
         cell.currencySymbol.text = "\(currency.name) \(currency.symbol)"
-        cell.currencySymbol.font = UIFont.boldSystemFont(ofSize: 30.0)
+        cell.currencySymbol.font = UIFont.boldSystemFont(ofSize: 25.0)
         
         cell.currencyValue.text = String(format: "%.02f", currency.rate)
         cell.currencyValue.font = UIFont.boldSystemFont(ofSize: 30.0)
